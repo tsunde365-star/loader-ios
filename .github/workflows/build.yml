@@ -304,6 +304,15 @@ jobs:
             fi
           fi
 
+      - name: Embed bundled plugin
+        run: |
+          rm -rf extracted
+          mkdir -p extracted
+          unzip -q ${{ env.APP_NAME }}.ipa -d extracted
+          mkdir -p "extracted/Payload/Discord.app/Unbound/Plugins/larp"
+          cp plugins/larp/manifest.json plugins/larp/index.js "extracted/Payload/Discord.app/Unbound/Plugins/larp/"
+          (cd extracted && zip -r -q ../${{ env.APP_NAME }}.ipa .)
+
       - name: Upload ipa as artifact
         id: upload-ipa
         uses: actions/upload-artifact@v7

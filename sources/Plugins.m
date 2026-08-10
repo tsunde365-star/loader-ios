@@ -12,60 +12,86 @@ static NSMutableArray *plugins = nil;
 {
     plugins = [[NSMutableArray alloc] init];
 
-    [LoaderShared
-        scanAddonDirectory:@"Plugins"
-                  category:LOG_CATEGORY_PLUGINS
-                   handler:^(NSString *folder, NSString *dir) {
-                       if (![FileSystem isDirectory:dir])
-                       {
-                           [Logger info:LOG_CATEGORY_PLUGINS
-                                 format:@"Skipping %@ as it is not a directory.", folder];
-                           return;
-                       }
+    void (^loadPlugin)(NSString *, NSString *) =
+        ^(NSString *folder, NSString *dir) {
+            if (![FileSystem isDirectory:dir])
+            {
+                [Logger info:LOG_CATEGORY_PLUGINS
+                      format:@"Skipping %@ as it is not a directory.", folder];
+                return;
+            }
 
-                       NSString *data = [NSString pathWithComponents:@[ dir, @"manifest.json" ]];
-                       if (![FileSystem exists:data])
-                       {
-                           [Logger info:LOG_CATEGORY_PLUGINS
-                                 format:@"Skipping %@ as it is missing a manifest.", folder];
-                           return;
-                       }
+            NSString *data = [NSString pathWithComponents:@[ dir, @"manifest.json" ]];
+            if (![FileSystem exists:data])
+            {
+                [Logger info:LOG_CATEGORY_PLUGINS
+                      format:@"Skipping %@ as it is missing a manifest.", folder];
+                return;
+            }
 
-                       NSMutableDictionary *manifest =
-                           [LoaderShared parseManifestAt:data
-                                                  folder:folder
-                                                category:LOG_CATEGORY_PLUGINS];
-                       if (!manifest)
-                       {
-                           return;
-                       }
+            NSMutableDictionary *manifest =
+                [LoaderShared parseManifestAt:data
+                                       folder:folder
+                                     category:LOG_CATEGORY_PLUGINS];
+            if (!manifest)
+            {
+                return;
+            }
 
-                       NSString *entry = [LoaderShared resolveManifestEntryInDirectory:dir
-                                                                              manifest:manifest
-                                                                                   key:@"main"];
-                       if (!entry)
-                       {
-                           [Logger info:LOG_CATEGORY_PLUGINS
-                                 format:@"Skipping %@ as manifest.main is missing or invalid.",
-                                        folder];
-                           return;
-                       }
+            NSString *entry = [LoaderShared resolveManifestEntryInDirectory:dir
+                                                                   manifest:manifest
+                                                                        key:@"main"];
+            if (!entry)
+            {
+                [Logger info:LOG_CATEGORY_PLUGINS
+                      format:@"Skipping %@ as manifest.main is missing or invalid.",
+                             folder];
+                return;
+            }
 
-                       NSData *bundle = [FileSystem readFile:entry];
+            NSData *bundle = [FileSystem readFile:entry];
 
-                       manifest[@"folder"] = folder;
-                       manifest[@"path"]   = dir;
-                       manifest[@"entry"]  = entry;
+            manifest[@"folder"] = folder;
+            manifest[@"path"]   = dir;
+            manifest[@"entry"]  = entry;
 
-                       [plugins addObject:@{
-                           @"manifest" : manifest,
-                           @"bundle" : [[NSString alloc] initWithData:bundle
-                                                             encoding:NSUTF8StringEncoding]
-                       }];
+            [plugins addObject:@{
+                @"manifest" : manifest,
+                @"bundle" : [[NSString alloc] initWithData:bundle
+                                                  encoding:NSUTF8StringEncoding]
+            }];
 
-                       [Logger info:LOG_CATEGORY_PLUGINS
-                             format:@"Loaded %@ from %@.", folder, entry];
-                   }];
+            [Logger info:LOG_CATEGORY_PLUGINS
+                  format:@"Loaded %@ from %@.", folder, entry];
+        };
+
+    [LoaderShared scanAddonDirectory:@"Plugins"
+                            category:LOG_CATEGORY_PLUGINS
+                             handler:loadPlugin];
+
+    NSString *bundledDir = [NSString pathWithComponents:@[
+        [NSBundle mainBundle].resourcePath,
+        @"Unbound",
+        @"Plugins"
+    ]];
+
+    if ([FileSystem exists:bundledDir])
+    {
+        for (NSString *folder in [FileSystem readDirectory:bundledDir])
+        {
+            @try
+            {
+                loadPlugin(folder,
+                           [NSString pathWithComponents:@[ bundledDir, folder ]]);
+            }
+            @catch (NSException *e)
+            {
+                [Logger error:LOG_CATEGORY_PLUGINS
+                       format:@"Failed to load bundled plugin %@ (%@)", folder,
+                              e.reason];
+            }
+        }
+    }
 
     NSUInteger pluginCount = [plugins count];
     NSString  *pluralForm  = (pluginCount == 1) ? @"plugin" : @"plugins";

@@ -1,0 +1,13 @@
+{
+  "id": "larp",
+  "name": "Larp",
+  "description": "[v12.0.0] Local profile spoof for Discord (Unbound): useBadges interception, nitro emerald/ruby/opal, tenure v2, boost lvl6/lvl9, username replace, member since, otherProfiles multi-account.",
+  "authors": [
+    {
+      "name": "hello156165",
+      "id": "0"
+    }
+  ],
+  "version": "12.0.0",
+  "main": "index.js"
+}
