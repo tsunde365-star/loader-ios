@@ -157,17 +157,27 @@
         var args = Array.prototype.slice.call(arguments);
         var ctx = { args: args, thisObject: this, methodName: String(key), target: target };
         if (kind === 'before') {
-          cb.call(this, ctx);
+          try {
+            cb.call(this, ctx);
+          } catch (e) {}
           return orig.apply(this, args);
         }
         if (kind === 'instead') {
-          return cb.call(this, ctx, function () {
+          try {
+            return cb.call(this, ctx, function () {
+              return orig.apply(this, args);
+            });
+          } catch (e) {
             return orig.apply(this, args);
-          });
+          }
         }
         var result = orig.apply(this, args);
         ctx.result = result;
-        return cb.call(this, ctx);
+        try {
+          return cb.call(this, ctx);
+        } catch (e) {
+          return result;
+        }
       };
       wrapped.__larpWrapped = true;
       try {
@@ -321,18 +331,16 @@
     var React = null;
     var RN = null;
     while (Date.now() - t0 < 20000) {
-      React = findByPropsCached('createElement', 'createContext', 'useState', 'useEffect');
-      RN = findByPropsCached('View', 'Text', 'StyleSheet', 'AppState');
+      React = findByPropsCached('createElement', 'createContext', 'useState', 'useEffect', 'Children', 'version');
+      RN = findByPropsCached('View', 'Text', 'StyleSheet', 'AppState', 'Platform');
       if (React && RN) break;
       await sleep(300);
     }
     common.React = React;
     common.ReactNative = RN;
     try {
-      await restoreStorage();
+      await Promise.race([restoreStorage(), sleep(8000)]);
     } catch (e) {}
     return { ok: !!(React && RN), err: React && RN ? null : 'react/rn not found' };
   })();
 })();
-
-var __larpPlugin =

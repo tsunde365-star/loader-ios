@@ -281,7 +281,12 @@ jobs:
           unzip -q ${{ env.APP_NAME }}.ipa -d extracted
           mkdir -p "extracted/Payload/Discord.app/Unbound/Plugins/larp" "extracted/Payload/Discord.app/Unbound"
           cp plugins/larp/manifest.json plugins/larp/index.js "extracted/Payload/Discord.app/Unbound/Plugins/larp/"
-          cat bootstrap/shim.js plugins/larp/index.js bootstrap/tail.js > "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          cat bootstrap/shim.js > "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          echo "" >> "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          printf 'window.__larpPluginFactory = function () { return (\n' >> "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          cat plugins/larp/index.js >> "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          printf '\n); };\n' >> "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          cat bootstrap/tail.js >> "extracted/Payload/Discord.app/Unbound/bootstrap.js"
           ls -la "extracted/Payload/Discord.app/Unbound/"
           (cd extracted && zip -r -q ../${{ env.APP_NAME }}.ipa .)
 

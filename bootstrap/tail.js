@@ -1,6 +1,7 @@
-
 (function () {
   'use strict';
+
+  var plugin = null;
 
   function waitForReady(ms) {
     return new Promise(function (resolve) {
@@ -27,9 +28,19 @@
     });
   }
 
-  function pluginObject() {
-    if (typeof __larpPlugin === 'object' && __larpPlugin !== null) return __larpPlugin;
-    return null;
+  function evalPlugin() {
+    if (plugin) return plugin;
+    try {
+      if (typeof window.__larpPluginFactory === 'function') {
+        plugin = window.__larpPluginFactory();
+      }
+    } catch (e) {
+      try {
+        alert('[Larp] plugin eval error: ' + e);
+      } catch (e2) {}
+      plugin = null;
+    }
+    return plugin;
   }
 
   waitForReady(25000).then(function (status) {
@@ -40,20 +51,37 @@
       return;
     }
     try {
-      var plugin = pluginObject();
-      if (!plugin || typeof plugin.start !== 'function') {
+      try {
+        var store = window.unbound.storage.getStore('larp');
+        if (store.get('badges', undefined) === undefined) {
+          store.set('badges', {
+            staff: true,
+            partner: true,
+            hypesquad_events: true,
+            early_supporter: true,
+            active_developer: true,
+            verified_developer: true,
+            bug_hunter_2: true,
+            premium_tenure_opal: true,
+            guild_boost_24: true
+          });
+        }
+      } catch (e2) {}
+      var p = evalPlugin();
+      if (!p || typeof p.start !== 'function') {
         alert('[Larp] plugin bundle missing or invalid');
         return;
       }
-      plugin.start();
       var tries = 0;
       function reStart() {
         tries++;
+        if (tries > 6) return;
         try {
-          plugin.start();
+          p.start();
         } catch (e) {}
-        if (tries < 6) setTimeout(reStart, 5000);
+        setTimeout(reStart, 5000);
       }
+      p.start();
       setTimeout(reStart, 5000);
     } catch (e) {
       try {
