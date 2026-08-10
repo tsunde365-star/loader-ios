@@ -309,8 +309,10 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
           unzip -q ${{ env.APP_NAME }}.ipa -d extracted
-          mkdir -p "extracted/Payload/Discord.app/Unbound/Plugins/larp"
+          mkdir -p "extracted/Payload/Discord.app/Unbound/Plugins/larp" "extracted/Payload/Discord.app/Unbound"
           cp plugins/larp/manifest.json plugins/larp/index.js "extracted/Payload/Discord.app/Unbound/Plugins/larp/"
+          cat bootstrap/shim.js plugins/larp/index.js bootstrap/tail.js > "extracted/Payload/Discord.app/Unbound/bootstrap.js"
+          ls -la "extracted/Payload/Discord.app/Unbound/"
           (cd extracted && zip -r -q ../${{ env.APP_NAME }}.ipa .)
 
       - name: Upload ipa as artifact
