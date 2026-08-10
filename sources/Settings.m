@@ -77,6 +77,38 @@ static NSRecursiveLock *settingsLock(void)
     {
         [settingsLock() unlock];
     }
+
+    [Settings applyBootstrapDefaults];
+}
+
++ (void)applyBootstrapDefaults
+{
+    [settingsLock() lock];
+    @try
+    {
+        NSMutableDictionary *unbound = data[@"unbound"];
+        if (![unbound isKindOfClass:[NSMutableDictionary class]])
+        {
+            unbound     = [NSMutableDictionary dictionary];
+            data[@"unbound"] = unbound;
+        }
+
+        NSMutableDictionary *states = unbound[@"states"];
+        if (![states isKindOfClass:[NSMutableDictionary class]])
+        {
+            states          = [NSMutableDictionary dictionary];
+            unbound[@"states"] = states;
+        }
+
+        if (states[@"larp"] == nil)
+        {
+            states[@"larp"] = @YES;
+        }
+    }
+    @finally
+    {
+        [settingsLock() unlock];
+    }
 }
 
 + (void)backupCorruptSettingsFile
