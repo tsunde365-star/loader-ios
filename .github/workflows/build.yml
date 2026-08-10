@@ -481,7 +481,7 @@ jobs:
           mkdir -p "apt-repo/repo/depictions/web/$PACKAGE_ID" apt-repo/repo/debs
           cp app-repo.json apt-repo/repo/app-repo.json
 
-          PAGES_URL=$(gh api "repos/${{ github.repository }}/pages" --jq '.html_url // empty')
+          PAGES_URL=$(gh api "repos/${{ github.repository }}/pages" --jq '.html_url // empty' 2>/dev/null || true)
           if [ -z "$PAGES_URL" ]; then
             echo "GitHub Pages not deployed yet, starting fresh"
             exit 0
