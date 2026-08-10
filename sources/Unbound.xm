@@ -63,6 +63,43 @@ static void evaluateEmbeddedBootstrap(void)
                        format:@"Embedded Larp bootstrap evaluation %@.",
                               didLoad ? @"succeeded" : @"failed"];
             }];
+
+            dispatch_after(
+                dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC),
+                dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+                    RCTInstance *diagInstance = gInstance;
+                    if (!diagInstance) return;
+                    [diagInstance callFunctionOnBufferedRuntimeExecutor:^(jsi::Runtime &runtime) {
+                        try
+                        {
+                            auto global = runtime.global();
+                            if (!global.hasProperty(runtime, "__larpDiag"))
+                            {
+                                return;
+                            }
+                            auto val = global.getProperty(runtime, "__larpDiag");
+                            if (!val.isObject() || !val.getObject(runtime).isFunction(runtime))
+                            {
+                                return;
+                            }
+                            auto fn = val.getObject(runtime).getFunction(runtime);
+                            auto res = fn.call(runtime);
+                            if (res.isString())
+                            {
+                                std::string s = res.getString(runtime).utf8(runtime);
+                                dispatch_async(dispatch_get_main_queue(), ^{
+                                    [Utilities alert:[NSString stringWithUTF8String:s.c_str()]
+                                                  title:@"Larp diag"];
+                                });
+                            }
+                        }
+                        catch (const std::exception &e)
+                        {
+                            [Logger error:LOG_CATEGORY_DEFAULT
+                                   format:@"Larp diag read failed: %s", e.what()];
+                        }
+                    }];
+                });
         });
 }
 

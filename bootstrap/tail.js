@@ -46,10 +46,16 @@
   waitForReady(25000).then(function (status) {
     if (!status.ok) {
       try {
+        window.__larpState.readyErr = String(status.err);
+      } catch (e) {}
+      try {
         alert('[Larp] init failed: ' + status.err);
       } catch (e) {}
       return;
     }
+    try {
+      window.__larpState.phase = 'ready';
+    } catch (e) {}
     try {
       try {
         var store = window.unbound.storage.getStore('larp');
@@ -72,21 +78,28 @@
         alert('[Larp] plugin bundle missing or invalid');
         return;
       }
+      window.__larpState.phase = 'started';
+      window.__larpState.started = true;
       var tries = 0;
       function reStart() {
         tries++;
         if (tries > 6) return;
         try {
           p.start();
-        } catch (e) {}
+        } catch (e) {
+          window.__larpState.startErr = String(e);
+        }
         setTimeout(reStart, 5000);
       }
       p.start();
       setTimeout(reStart, 5000);
     } catch (e) {
       try {
-        alert('[Larp] failed to start: ' + e);
+        window.__larpState.startErr = String(e);
       } catch (e2) {}
+      try {
+        alert('[Larp] failed to start: ' + e);
+      } catch (e3) {}
     }
   });
 })();

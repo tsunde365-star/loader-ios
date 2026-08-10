@@ -343,4 +343,32 @@
     } catch (e) {}
     return { ok: !!(React && RN), err: React && RN ? null : 'react/rn not found' };
   })();
+
+  window.__larpState = {
+    phase: 'init',
+    readyErr: null,
+    started: false,
+    startErr: null
+  };
+
+  globalThis.__larpDiag = function () {
+    var out = {
+      phase: window.__larpState.phase,
+      modules: -1,
+      react: !!common.React,
+      rn: !!common.ReactNative,
+      readyErr: window.__larpState.readyErr,
+      started: window.__larpState.started,
+      startErr: window.__larpState.startErr,
+      asyncStorage: !!findAsyncStorage(),
+      cType: typeof globalThis.__c,
+      modType: typeof globalThis.modules
+    };
+    try {
+      out.modules = registryIds().length;
+    } catch (e) {
+      out.modules = -1;
+    }
+    return JSON.stringify(out);
+  };
 })();
