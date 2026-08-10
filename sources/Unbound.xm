@@ -22,6 +22,32 @@ static BOOL      gBrowserLoginIsApplying    = NO;
 static BOOL      gUnboundBundleIsReady      = NO;
 static NSUInteger gBrowserLoginFailureCount = 0;
 
+static BOOL gDiagDidInitFired              = NO;
+static BOOL gDiagRuntimeWasNil             = NO;
+static BOOL gDiagEnsureInjected            = NO;
+static BOOL gDiagNativePresentAfterEnsure  = NO;
+static BOOL gDiagEvaluateSuccess           = NO;
+static BOOL gDiagShown                     = NO;
+
+static void showDiagnostics(void)
+{
+    if (gDiagShown)
+    {
+        return;
+    }
+    gDiagShown = YES;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString *msg = [NSString stringWithFormat:
+                         @"didInit: %@\nruntimeNilAtLoad: %@\nensureInjected: %@\nnativePresent: %@\nevalOK: %@",
+                         gDiagDidInitFired ? @"YES" : @"NO",
+                         gDiagRuntimeWasNil ? @"YES" : @"NO",
+                         gDiagEnsureInjected ? @"YES" : @"NO",
+                         gDiagNativePresentAfterEnsure ? @"YES" : @"NO",
+                         gDiagEvaluateSuccess ? @"YES" : @"NO"];
+        [Utilities alert:msg title:@"Unbound Diag"];
+    });
+}
+
 static void applyPendingBrowserLogin(void)
 {
     RCTInstance *instance = gInstance;
@@ -217,8 +243,12 @@ static void enqueueUnboundBundle(RCTInstance *self)
         [Logger info:LOG_CATEGORY_DEFAULT format:@"Scheduling Unbound's bundle for execution..."];
         [self callFunctionOnBufferedRuntimeExecutor:[bundle, token](jsi::Runtime &runtime) {
             ensurePreBundleInjected(runtime);
+            gDiagEnsureInjected = YES;
+            gDiagNativePresentAfterEnsure =
+                runtime.global().hasProperty(runtime, "UnboundNative");
             [Logger info:LOG_CATEGORY_DEFAULT format:@"Attempting to execute bundle..."];
             BOOL didLoadBundle = [JSI evaluate:bundle tag:@"unbound" runtime:runtime];
+            gDiagEvaluateSuccess = didLoadBundle;
             if (didLoadBundle)
             {
                 [Logger info:LOG_CATEGORY_DEFAULT
@@ -232,6 +262,11 @@ static void enqueueUnboundBundle(RCTInstance *self)
                     applyPendingBrowserLogin();
                 });
             }
+            else
+            {
+                [Logger error:LOG_CATEGORY_DEFAULT format:@"Unbound's bundle failed to execute."];
+            }
+            showDiagnostics();
         }];
     });
 }
@@ -243,6 +278,7 @@ static void enqueueUnboundBundle(RCTInstance *self)
 - (void)instance:(id)instance didInitializeRuntime:(facebook::jsi::Runtime &)runtime
 {
     gRuntime = &runtime;
+    gDiagDidInitFired = YES;
     [Logger info:LOG_CATEGORY_DEFAULT format:@"RCTHost didInitializeRuntime; runtime captured."];
     %orig;
 }
@@ -287,6 +323,9 @@ static void enqueueUnboundBundle(RCTInstance *self)
 
     prefetchUnboundBundle();
 
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 12 * NSEC_PER_SEC), dispatch_get_main_queue(),
+                   ^{ showDiagnostics(); });
+
     [HotReload observe];
 
     %orig(sourceURL);
@@ -301,6 +340,7 @@ static void enqueueUnboundBundle(RCTInstance *self)
     }
     else
     {
+        gDiagRuntimeWasNil = YES;
         [Logger error:LOG_CATEGORY_DEFAULT
                format:@"Runtime not captured; pre-bundle injection will be attempted lazily."];
     }
