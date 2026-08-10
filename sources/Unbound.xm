@@ -122,6 +122,17 @@ static void injectUnboundPreBundle(jsi::Runtime &runtime)
     }
 }
 
+static jsi::Runtime *gPreBundleInjectedOn = nullptr;
+
+static void ensurePreBundleInjected(jsi::Runtime &runtime)
+{
+    if (gPreBundleInjectedOn != &runtime)
+    {
+        gPreBundleInjectedOn = &runtime;
+        injectUnboundPreBundle(runtime);
+    }
+}
+
 static NSData              *gUnboundBundle    = nil;
 static dispatch_semaphore_t gUnboundBundleSem = nil;
 static std::atomic_uint64_t gPrefetchToken{0};
@@ -205,6 +216,7 @@ static void enqueueUnboundBundle(RCTInstance *self)
 
         [Logger info:LOG_CATEGORY_DEFAULT format:@"Scheduling Unbound's bundle for execution..."];
         [self callFunctionOnBufferedRuntimeExecutor:[bundle, token](jsi::Runtime &runtime) {
+            ensurePreBundleInjected(runtime);
             [Logger info:LOG_CATEGORY_DEFAULT format:@"Attempting to execute bundle..."];
             BOOL didLoadBundle = [JSI evaluate:bundle tag:@"unbound" runtime:runtime];
             if (didLoadBundle)
@@ -285,11 +297,12 @@ static void enqueueUnboundBundle(RCTInstance *self)
     if (gRuntime)
     {
         injectUnboundPreBundle(*gRuntime);
+        gPreBundleInjectedOn = gRuntime;
     }
     else
     {
         [Logger error:LOG_CATEGORY_DEFAULT
-               format:@"Runtime not captured; skipping pre-bundle injection."];
+               format:@"Runtime not captured; pre-bundle injection will be attempted lazily."];
     }
 
     %orig(source);
